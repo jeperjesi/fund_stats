@@ -4,6 +4,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 
+import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -76,6 +77,11 @@ def fmt_pct(value, decimals: int = 2) -> str:
     if pd.isna(value):
         return ""
     return f"{value * 100:.{decimals}f}%"
+
+
+def build_vami(dates: pd.Series, returns: pd.Series, start: float = 1000.0) -> pd.Series:
+    vami = (1 + returns).cumprod() * start
+    return pd.Series(vami.values, index=dates, name="vami")
 
 
 def build_return_table(dates: pd.Series, returns: pd.Series) -> pd.DataFrame:
@@ -385,7 +391,30 @@ def main():
         st.warning("\n".join(lines))
 
     # ── Tabs ──────────────────────────────────────────────────────────────
-    tab1, tab2 = st.tabs(["Summary Statistics", "Monthly Returns"])
+    tab1, tab2, tab3 = st.tabs(["Summary Statistics", "Monthly Returns", "VAMI"])
+
+    # Build return tables and VAMI here so they're available for save-to-disk
+    fund_pivot = build_return_table(fund_df["month_end_date"], fund_df["Fund Return"])
+    bench_pivot = None
+    if include_benchmark:
+        bench_pivot = build_return_table(
+            benchmark_df["month_end_date"], benchmark_df["Benchmark Return"]
+        )
+
+    if include_benchmark:
+        fund_vami = build_vami(aligned["month_end_date"], aligned["Fund Return"])
+        bench_vami = build_vami(aligned["month_end_date"], aligned["Benchmark Return"])
+        vami_df = pd.DataFrame(
+            {fund_label: fund_vami.values, benchmark_label: bench_vami.values},
+            index=aligned["month_end_date"],
+        )
+    else:
+        fund_vami = build_vami(fund_df["month_end_date"], fund_df["Fund Return"])
+        vami_df = pd.DataFrame(
+            {fund_label: fund_vami.values},
+            index=fund_df["month_end_date"],
+        )
+    vami_df.index.name = "Date"
 
     with tab1:
         display_df = summary.copy()
@@ -397,51 +426,115 @@ def main():
             )
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    with tab2:
-        fund_pivot = build_return_table(fund_df["month_end_date"], fund_df["Fund Return"])
-
-        st.markdown(f"**{fund_label}**")
-        st.dataframe(
-            format_return_table(fund_pivot),
-            use_container_width=True,
+        summary_filename = (
+            f"return_metrics_summary vs {benchmark_label}.xlsx"
+            if include_benchmark
+            else f"return_metrics_summary {fund_label}.xlsx"
+        )
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            summary.to_excel(writer, index=False, sheet_name="Summary")
+        st.download_button(
+            label="Download Excel",
+            data=buf.getvalue(),
+            file_name=summary_filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_summary",
         )
 
+    with tab2:
+        st.markdown(f"**{fund_label}**")
+        st.dataframe(format_return_table(fund_pivot), use_container_width=True)
+
         if include_benchmark:
-            bench_pivot = build_return_table(
-                benchmark_df["month_end_date"], benchmark_df["Benchmark Return"]
-            )
             st.markdown(f"**{benchmark_label}**")
-            st.dataframe(
-                format_return_table(bench_pivot),
-                use_container_width=True,
-            )
-        else:
-            bench_pivot = None
+            st.dataframe(format_return_table(bench_pivot), use_container_width=True)
 
-    # ── Excel download / save ─────────────────────────────────────────────
-    return_sheets = {f"{fund_label} Returns": fund_pivot}
-    if include_benchmark and bench_pivot is not None:
-        return_sheets[f"{benchmark_label} Returns"] = bench_pivot
+        returns_sheets = {f"{fund_label} Returns": fund_pivot}
+        if bench_pivot is not None:
+            returns_sheets[f"{benchmark_label} Returns"] = bench_pivot
 
-    excel_bytes = build_excel_multi(summary, return_sheets)
-    filename = (
-        f"return_metrics_summary vs {benchmark_label}.xlsx"
-        if include_benchmark
-        else f"return_metrics_summary {fund_label}.xlsx"
-    )
-    st.download_button(
-        label="Download Excel",
-        data=excel_bytes,
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+        returns_filename = (
+            f"monthly_returns vs {benchmark_label}.xlsx"
+            if include_benchmark
+            else f"monthly_returns {fund_label}.xlsx"
+        )
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            for sheet_name, df in returns_sheets.items():
+                df.to_excel(writer, sheet_name=sheet_name)
+        st.download_button(
+            label="Download Excel",
+            data=buf.getvalue(),
+            file_name=returns_filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_returns",
+        )
 
+    with tab3:
+        st.caption("Growth of $1,000 invested at inception")
+
+        vami_reset = vami_df.reset_index()
+        vami_reset["date_str"] = vami_reset["Date"].dt.strftime("%b-%y")
+        date_order = vami_reset["date_str"].tolist()
+        vami_long = vami_reset.drop(columns="Date").melt(
+            id_vars="date_str", var_name="Series", value_name="Value"
+        )
+
+        base = alt.Chart(vami_long).encode(
+            x=alt.X(
+                "date_str:O",
+                title=None,
+                sort=date_order,
+                axis=alt.Axis(labelAngle=-45, labelLimit=60),
+            ),
+            color=alt.Color("Series:N", legend=alt.Legend(title=None)),
+        )
+        lines = base.mark_line().encode(y=alt.Y("Value:Q", title="Value ($)"))
+        points = base.mark_point(opacity=0, size=100).encode(
+            y=alt.Y("Value:Q"),
+            tooltip=[
+                alt.Tooltip("date_str:O", title="Date"),
+                alt.Tooltip("Series:N"),
+                alt.Tooltip("Value:Q", title="Value ($)", format=",.2f"),
+            ],
+        )
+        chart = (lines + points).properties(height=450, padding={"bottom": 20}).interactive()
+        st.altair_chart(chart, use_container_width=True)
+
+        vami_filename = (
+            f"vami vs {benchmark_label}.xlsx"
+            if include_benchmark
+            else f"vami {fund_label}.xlsx"
+        )
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            vami_df.to_excel(writer, sheet_name="VAMI")
+        st.download_button(
+            label="Download Excel",
+            data=buf.getvalue(),
+            file_name=vami_filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_vami",
+        )
+
+    # ── Save to disk ──────────────────────────────────────────────────────
     if export_to_disk:
+        all_sheets = {f"{fund_label} Returns": fund_pivot}
+        if bench_pivot is not None:
+            all_sheets[f"{benchmark_label} Returns"] = bench_pivot
+        all_sheets["VAMI"] = vami_df
+
+        full_filename = (
+            f"return_metrics_summary vs {benchmark_label}.xlsx"
+            if include_benchmark
+            else f"return_metrics_summary {fund_label}.xlsx"
+        )
         if output_dir and os.path.isdir(output_dir):
-            out_file = os.path.join(output_dir, filename)
+            out_file = os.path.join(output_dir, full_filename)
             with pd.ExcelWriter(out_file, engine="openpyxl") as writer:
                 summary.to_excel(writer, index=False, sheet_name="Summary")
-                for sheet_name, df in return_sheets.items():
+                for sheet_name, df in all_sheets.items():
                     df.to_excel(writer, sheet_name=sheet_name)
             st.success(f"Saved to: {out_file}")
         elif output_dir:

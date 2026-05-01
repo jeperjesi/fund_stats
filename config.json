@@ -9,6 +9,7 @@
   },
   "benchmarks": {
     "S&P 500 Total Return": "S&P 500 Total Return returns history.xlsx",
+    "MSCI ACWI Index": "MSCI ACWI Index returns history.xlsx",
     "MSCI World Index": "MSCI World Net Index returns history.xlsx",
     "MSCI US Index": "MSCI US Index returns history.xlsx",
     "MFN Equity L/S Index": "HFN Long Short Equity Index returns history.xlsx"

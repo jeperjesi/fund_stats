@@ -209,7 +209,7 @@ def main():
             fund_file = os.path.join(input_dir, config["funds"][fund_choice])
 
         st.write("Fund returns file should be named '[Fund Name] returns history.xlsx'")
-        st.write("File should have a 'date' column with month end date and a 'return' column with monthly returns as decimals (e.g. 0.0123 for 1.23%)")
+        st.write("File should have a 'date' column with month end date and a 'return' column with monthly returns as decimals (e.g. 0.0123 or 1.23%)")
         st.write("")
 
         st.subheader("Benchmark")

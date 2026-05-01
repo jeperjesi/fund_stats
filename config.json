@@ -1,0 +1,19 @@
+{
+  "input_path": "C:\\Users\\JosephEperjesi\\Leap District Advisors\\Shared - Documents\\General\\Andersen\\Performance Reporting\\Monthly Reporting",
+  "funds": {
+    "Andersen": "Andersen returns history.xlsx",
+    "Readout": "Readout returns history.xlsx",
+    "Sword": "Sword returns history.xlsx",
+    "Griet": "Griet returns history.xlsx",
+    "Tuvak": "Tuvak returns history.xlsx"
+  },
+  "benchmarks": {
+    "S&P 500 Total Return": "S&P 500 Total Return returns history.xlsx",
+    "MSCI World Index": "MSCI World Net Index returns history.xlsx",
+    "MSCI US Index": "MSCI US Index returns history.xlsx",
+    "MFN Equity L/S Index": "HFN Long Short Equity Index returns history.xlsx"
+  },
+  "benchmark_subpath": "General\\Leap\\Benchmark Returns",
+  "output_path": "C:\\Users\\JosephEperjesi\\Leap District Advisors\\Shared - Documents\\General\\Andersen\\Performance Reporting\\Monthly Reporting",
+  "default_risk_free_annual_pct": 4.0
+}

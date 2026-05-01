@@ -186,3 +186,8 @@ Managed automatically by `launch.bat` via `requirements.txt`:
 - [NumPy](https://numpy.org/)
 - [SciPy](https://scipy.org/)
 - [openpyxl](https://openpyxl.readthedocs.io/)
+
+
+## TO DO
+
+Allow for a stream of returns in place of the static risk free rate

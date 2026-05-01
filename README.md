@@ -123,6 +123,46 @@ If **Save to output folder** is checked, the same file is also written to the se
 
 ---
 
+## Metric Definitions
+
+All metrics are computed on the overlapping date range between the fund and benchmark (inner join). Where a date range filter is applied, only the filtered data is used.
+
+### Return metrics (fund and benchmark)
+
+| Metric | How it is calculated |
+|---|---|
+| **3-month return** | Compounded return of the most recent 3 monthly returns: `∏(1 + rₜ) - 1` |
+| **6-month return** | Same as above using the most recent 6 months |
+| **YTD return** | Compounded return of all months in the calendar year of the most recent observation |
+| **1-year return** | Compounded return of the most recent 12 monthly returns |
+| **Annualized return** | Geometric annualization of the full return series: `(∏(1 + rₜ))^(12/n) - 1`, where n is the number of months |
+| **2-year annualized return** | Same formula applied to the most recent 24 months |
+| **Standard deviation** | Sample standard deviation of monthly returns (ddof=1), scaled to annual: `σ_monthly × √12` |
+| **Sharpe ratio** | Annualized ratio of mean monthly excess return to its standard deviation: `(mean(rₜ - rf_monthly) / σ_excess) × √12`, where the monthly risk-free rate is derived as `(1 + rf_annual)^(1/12) - 1` |
+| **Sharpe ratio (ann shortcut)** | Alternative Sharpe calculation using annualized figures directly: `(annualized return - rf_annual) / annualized std dev`. Will differ slightly from the standard Sharpe due to compounding effects. |
+| **Sortino ratio** | Similar to Sharpe but penalises only downside volatility: `(mean(rₜ - rf_monthly) / downside deviation) × √12`, where downside deviation is the RMS of negative excess returns |
+| **Cumulative inception to date** | Total compounded return across all available months: `∏(1 + rₜ) - 1` |
+
+### Relative metrics (fund vs benchmark)
+
+| Metric | How it is calculated |
+|---|---|
+| **Alpha** | OLS regression of fund monthly returns on benchmark monthly returns (`R_fund = α + β × R_bench`). The intercept α is the monthly alpha, annualized geometrically: `(1 + α_monthly)^12 - 1`. No risk-free rate adjustment. |
+| **Jensen's alpha** | CAPM-based alpha with risk-free rate adjustment. Regresses excess fund returns on excess benchmark returns: `(R_fund - rf) = α + β × (R_bench - rf)`. The intercept is annualized geometrically: `(1 + α_monthly)^12 - 1` |
+| **Beta** | Covariance of fund and benchmark monthly returns divided by the variance of the benchmark: `Cov(R_fund, R_bench) / Var(R_bench)`, using sample statistics (ddof=1) |
+| **R²** | Square of the Pearson correlation coefficient between fund and benchmark monthly returns. Represents the proportion of fund return variance explained by the benchmark. |
+| **Excess return** | Annualized geometric excess return of the fund over the benchmark: `(∏((1 + R_fund) / (1 + R_bench)))^(12/n) - 1`. Measures how much the fund compounded faster or slower than the benchmark per year. |
+
+### Monthly returns table (Tab 2)
+
+| Column | How it is calculated |
+|---|---|
+| **Jan – Dec** | Raw monthly return for that month, as provided in the source file |
+| **YTD** | Compounded return of all months present in that year: `∏(1 + rₜ) - 1` |
+| **ITD** | Cumulative compounded return from the first available month through the end of that year: `∏(1 + rₜ) - 1` across all months up to and including that year |
+
+---
+
 ## Project Structure
 
 ```
